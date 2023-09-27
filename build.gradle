@@ -9,6 +9,10 @@ buildscript {
             name = "sonatype"
             url = "https://oss.sonatype.org/content/repositories/snapshots/"
         }
+        maven {
+            name = 'Clojars' // name can be ommitted, but is helpful in troubleshooting
+            url = 'https://repo.clojars.org/'
+        }
     }
     dependencies {
         classpath ('com.anatawa12.forge:ForgeGradle:1.2-1.1.+') {
@@ -17,10 +21,30 @@ buildscript {
     }
 }
 
+plugins {
+    id 'com.github.johnrengelman.shadow' version '5.2.0'
+    id "dev.clojurephant.clojure" version "0.6.0-alpha.4"
+}
+
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
+
+configurations {
+    shade
+    implementation.extendsFrom(shade)
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'clojars'
+        url = 'https://repo.clojars.org'
+    }
+}
+
 apply plugin: 'forge'
 
 version = "1.0"
-group= "com.yourname.modid" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
+group= "com.example.examplemod" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "modid"
 
 minecraft {
@@ -29,23 +53,44 @@ minecraft {
 }
 
 dependencies {
-    // you may put jars on which you depend on in ./libs
-    // or you may define them like so..
-    //compile "some.group:artifact:version:classifier"
-    //compile "some.group:artifact:version"
-      
-    // real examples
-    //compile 'com.mod-buildcraft:buildcraft:6.0.8:dev'  // adds buildcraft to the dev env
-    //compile 'com.googlecode.efficient-java-matrix-library:ejml:0.24' // adds ejml to the dev env
+    implementation 'org.clojure:clojure:1.10.1'
+    shade "org.clojure:clojure:1.10.1"
+}
 
-    // for more info...
-    // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
-    // http://www.gradle.org/docs/current/userguide/dependency_management.html
+checkClojure.enabled = false
 
+jar {
+    configurations.shade.each { dep ->
+        from(project.zipTree(dep)) {
+            exclude 'META-INF', 'META-INF/**'
+        }
+    }
+    archiveClassifier.set('all')
+}
+
+shadowJar {
+    configurations = [project.configurations.shade]
+}
+
+reobf {
+    shadowJar {}
+}
+
+build.dependsOn shadowJar
+
+task cljlessJar(type: Jar) {
+    from sourceSets.main.output
+}
+
+task sourceJar(type: Jar) {
+    archiveClassifier.set('sources')
+    from sourceSets.main.allSource
 }
 
 processResources
 {
+    duplicatesStrategy = DuplicatesStrategy.WARN
+
     // this will ensure that this task is redone when the versions change.
     inputs.property "version", project.version
     inputs.property "mcversion", project.minecraft.version
@@ -57,9 +102,19 @@ processResources
         // replace version and mcversion
         expand 'version':project.version, 'mcversion':project.minecraft.version
     }
-        
+
     // copy everything else, thats not the mcmod.info
     from(sourceSets.main.resources.srcDirs) {
         exclude 'mcmod.info'
+    }
+}
+
+// Sets both java and clojure folders as source, not necessary.
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java', 'src/main/clojure']
+        }
     }
 }
