@@ -114,7 +114,10 @@ processResources
 sourceSets {
     main {
         java {
-            srcDirs = ['src/main/java', 'src/main/clojure']
+            srcDirs = ['src/main/java']
+        }
+        clojure {
+            srcDirs = ['src/main/clojure']
         }
     }
 }
